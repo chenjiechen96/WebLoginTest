@@ -1,19 +1,11 @@
 import time
 from selenium import webdriver
-
-chromedriver = 'C:\\Program Files (x86)\\Google\\Chrome\Application\\chromedriver.exe'
-url = 'https://ieeexplore.ieee.org/Xplore/home.jsp'
-ele_info = {'Login_xpath': '//*[@id="LayoutWrapper"]/div/div/div/div[1]/div[2]/ul/li[3]/a',
-            'Acc_xpath': '//*[@id="personal-sign-in"]/div[2]/form/div[1]/input',
-            'Pwd_xpath': '//*[@id="personal-sign-in"]/div[2]/form/div[2]/input',
-            'Sign_xpath': '//*[@id="personal-sign-in"]/div[2]/form/div[3]/button'}
-account = {'Username': '93601340@qq.com', 'Password': 'abc12345'}
-sign_out = '//*[@id="LayoutWrapper"]/div/div/div/div[1]/div[2]/ul/li[3]/a'
-error = '//*[@id="personal-sign-in"]/div[2]/div[1]/div[2]'
+from UserData import Webinfo, Userinfo
+from LogInfo import LogInfo
 
 
-def open_browser():
-    webdriver_handle = webdriver.Chrome(chromedriver)
+def open_browser(chrmdvr):
+    webdriver_handle = webdriver.Chrome(chrmdvr)
     return webdriver_handle
 
 
@@ -38,31 +30,41 @@ def send_values(eletuple, arg):
     eletuple[2].click()
 
 
-def check_results(d, err_id):
-    ele_err = d.find_element_by_xpath(err_id)
-    if ele_err.text == '':
-        print('Pass')
-    else:
-        print(ele_err.text)
+def check_results(d, err_id, arg, log):
+    result = False
+    try:
+        ele_err = d.find_element_by_xpath(err_id)
+        log.log_write(arg['Username'], arg['Password'], 'Error', ele_err.text)
+    except:
+        log.log_write(arg['Username'], arg['Password'], 'Pass', 'Correct Account!')
+        result = True
+    return result
 
 
-def login_test():
-    wd = open_browser()
-    open_url(wd, url)
-
-    wd.implicitly_wait(5)
-
-    ele_tuple = find_elements(wd, ele_info)
-    send_values(ele_tuple, account)
-
-    time.sleep(5)
-
-    check_results(wd, error)
-
-    time.sleep(3)
+def login_test(ele_dict, user_lst):
+    wd = open_browser(ele_dict['chromedriver'])
+    log = LogInfo()
+    log.log_init('Username', 'Password', 'Result', 'Description')
+    open_url(wd, ele_dict['url'])
+    ele_tuple = find_elements(wd, ele_dict)
+    for arg in user_lst:
+        send_values(ele_tuple, arg)
+        time.sleep(5)
+        result = check_results(wd, ele_dict['err_xpath'], arg, log)
+        if result:
+            wd.find_element_by_xpath(ele_dict['Signout_xpath']).click()
+            break
+    time.sleep(10)
+    log.log_close()
 
     wd.quit()
 
 
 if __name__ == '__main__':
-    login_test()
+    user_info = Userinfo(r'UserData.xlsx')
+    users_list = user_info.get_sheet_info()
+
+    web_info = Webinfo(r'UserData.xlsx')
+    ele_info = web_info.get_sheet_info()
+
+    login_test(ele_info, users_list)
